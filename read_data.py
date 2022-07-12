@@ -1,3 +1,9 @@
+import pandas as pd
+import numpy as np
+
+DATA_DIR = ''
+
+
 def read_data(train=True, sample=False, cust_ratio=0.1):
     """
     Args:
@@ -7,11 +13,11 @@ def read_data(train=True, sample=False, cust_ratio=0.1):
     """
 
     if train:
-        FILE = 'train.parquet'
+        file = 'train.parquet'
     else:
-        FILE = 'test.parquet'
+        file = 'test.parquet'
 
-    df = pd.read_parquet(DATA_DIR + FILE)
+    df = pd.read_parquet(DATA_DIR + file)
 
     print(f"Database shape: {df.shape}")
     if sample:
