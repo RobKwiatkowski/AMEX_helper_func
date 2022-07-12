@@ -1,4 +1,4 @@
-def read_data(train=True, sample=False, cust_ratio=CFG.SAMPLE_RATIO):
+def read_data(train=True, sample=False, cust_ratio=0.1):
     """
     Args:
     train - bool - True if to read a train file
