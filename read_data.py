@@ -1,10 +1,8 @@
 import pandas as pd
 import numpy as np
 
-DATA_DIR = ''
 
-
-def read_data(train=True, sample=False, cust_ratio=0.1):
+def read_data(directory='', train=True, sample=False, cust_ratio=0.1):
     """
     Args:
     train - bool - True if to read a train file
@@ -17,7 +15,7 @@ def read_data(train=True, sample=False, cust_ratio=0.1):
     else:
         file = 'test.parquet'
 
-    df = pd.read_parquet(DATA_DIR + file)
+    df = pd.read_parquet(directory + file)
 
     print(f"Database shape: {df.shape}")
     if sample:
