@@ -25,3 +25,20 @@ def read_data(directory='', train=True, sample=False, cust_ratio=0.1):
         df = df[df['customer_ID'].isin(cust_ids)]
         print(f'Rows in sampled database: {df.shape[0]}')
     return df
+
+
+def prepare_chunks_cust(df, columns):
+    """
+    Prepares chunks by customers
+    :param df: pandas dataframe
+    :param columns: columns to be used
+    :return: list of pandas dataframes
+    """
+    cust_unique_ids = df['customer_ID'].unique()
+    cust_ids_split = np.array_split(cust_unique_ids, 12)
+    ready_chunks = []
+
+    for c_ids in cust_ids_split:
+        sub = df[df['customer_ID'].isin(c_ids)][['customer_ID'] + columns]
+        ready_chunks.append(sub)
+    return ready_chunks
