@@ -17,7 +17,7 @@ def read_data(directory='', train=True, sample=False, cust_ratio=0.1):
     else:
         file = 'test.parquet'
 
-    df = pd.read_parquet(directory + file)
+    df = pd.read_parquet(f'{directory}/{file}')
 
     print(f"Database shape: {df.shape}")
     if sample:
@@ -57,7 +57,7 @@ def _ewmt(df, hl):
 
     """
     df_new = df.ewm(halflife=hl).mean()
-    df_new.columns = [f'P_2_ewm{hl}']
+    df_new.columns = [f'{df_new.columns[0]}_ewm{hl}']
     return df_new
 
 
