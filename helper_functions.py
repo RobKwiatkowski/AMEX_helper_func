@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+from multiprocessing import Pool, cpu_count
+from itertools import repeat
 
 
 def read_data(directory='', train=True, sample=False, cust_ratio=0.1):
@@ -42,3 +44,42 @@ def prepare_chunks_cust(df, columns):
         sub = df[df['customer_ID'].isin(c_ids)][['customer_ID'] + columns]
         ready_chunks.append(sub)
     return ready_chunks
+
+
+def _ewmt(df, hl):
+    """
+    Calculates EWM for a chunk
+    Args:
+        df: pandas database
+        hl: integer, halflife value
+
+    Returns: pandas dataframe
+
+    """
+    df_new = df.ewm(halflife=hl).mean()
+    df_new.columns = [f'P_2_ewm{hl}']
+    return df_new
+
+
+def calc_ewm(chunks, periods=(2, 4)):
+    """
+    Calculates EWM
+    Args:
+        chunks: list, contains pandas dataframes
+        periods: list, contains periods for EWM
+
+    Returns: pandas dataframe
+    """
+    ewm_results = []
+    for t in periods:
+        p = Pool(cpu_count())
+        ewm_results.append(p.starmap(_ewmt, zip(chunks, repeat(t))))
+        p.close()
+        p.join()
+
+    rows_joined = []
+    for c in ewm_results:
+        ewm_results = pd.concat(c)
+        rows_joined.append(ewm_results)
+    final = pd.concat(rows_joined, axis=1)
+    return final
