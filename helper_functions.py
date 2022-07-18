@@ -57,7 +57,6 @@ def _ewmt(df, hl):
 
     """
     df_new = df.ewm(halflife=hl).mean()
-    #df_new.columns = [f'{df_new.columns[0]}_ewm{hl}']
     df_new = df_new.add_suffix(f'ewm{hl}')
     return df_new
 
@@ -74,7 +73,7 @@ def calc_ewm(chunks, periods=(2, 4)):
     ewm_results = []
     for t in periods:
         p1 = Pool(cpu_count())
-        ewm_results.append(p.starmap(_ewmt, zip(chunks, repeat(t))))
+        ewm_results.append(p1.starmap(_ewmt, zip(chunks, repeat(t))))
         p1.close()
         p1.join()
 
@@ -111,9 +110,80 @@ def calc_categorical_stats(chunks):
 
     """
     p2 = Pool(cpu_count())
-    results = p.map(_cat_stat, chunks)
+    results = p2.map(_cat_stat, chunks)
     p2.close()
     p2.join()
 
     results = pd.concat(results)
     return results
+
+
+def _take_first_col(series):
+    return series.values[0]
+
+
+def _last_2(series):
+    return series.values[-2] if len(series.values) >= 2 else -127
+
+
+def _last_3(series):
+    return series.values[-3] if len(series.values) >= 3 else -127
+
+
+def prepare_date_features(df, cat_features, num_cols):
+    # Drop all other columns except the S_2 and customer_ID(cat_cols, num_cols)
+    df = df.drop(cat_features + num_cols, axis=1)
+
+    # Converting S_2 column to datetime column
+    df['S_2'] = pd.to_datetime(df['S_2'])
+
+    # How many rows of records does each customer has?
+    df['rec_len_date'] = df[['customer_ID', 'S_2']].groupby(by=['customer_ID'])['S_2'].transform('count')
+
+    # Encode the 1st statement and the last statement time
+    df['S_2_first'] = df[['customer_ID', 'S_2']].groupby(by=['customer_ID'])['S_2'].transform('min')
+    df['S_2_last'] = df[['customer_ID', 'S_2']].groupby(by=['customer_ID'])['S_2'].transform('max')
+
+    # For how long(days) the customer is receiving the statements
+    df['S_2_period'] = (df[['customer_ID', 'S_2']].groupby(by=['customer_ID'])['S_2'].transform('max') -
+                        df[['customer_ID', 'S_2']].groupby(by=['customer_ID'])['S_2'].transform('min')).dt.days
+
+    # Days Between 2 statements
+    df['days_between_statements'] = \
+        df[['customer_ID', 'S_2']].sort_values(by=['customer_ID', 'S_2']).groupby(by=['customer_ID'])['S_2'].transform(
+        'diff').dt.days
+    df['days_between_statements'] = df['days_between_statements'].fillna(0)
+    df['days_between_statements_mean'] = df[['customer_ID', 'days_between_statements']].sort_values(
+        by=['customer_ID', 'days_between_statements']).groupby(by=['customer_ID']).transform('mean')
+    df['days_between_statements_std'] = df[['customer_ID', 'days_between_statements']].sort_values(
+        by=['customer_ID', 'days_between_statements']).groupby(by=['customer_ID']).transform('std')
+    df['days_between_statements_max'] = df[['customer_ID', 'days_between_statements']].sort_values(
+        by=['customer_ID', 'days_between_statements']).groupby(by=['customer_ID']).transform('max')
+    df['days_between_statements_min'] = df[['customer_ID', 'days_between_statements']].sort_values(
+        by=['customer_ID', 'days_between_statements']).groupby(by=['customer_ID']).transform('min')
+    df['S_2'] = (df['S_2_last'] - df['S_2']).dt.days
+
+    # Difference between S_2_last(max) and S_2_last
+    df['S_2_last_diff_date'] = (df['S_2_last'].max() - df['S_2_last']).dt.days
+
+    # Difference between S_2_first(min) and S_2_first
+    df['S_2_first_diff_date'] = (df['S_2_first'].min() - df['S_2_first']).dt.days
+
+    # Get the (day,month,year) and drop the S_2_first because we can't directly use them
+    df['S_2_first_dd_date'] = df['S_2_first'].dt.day
+    df['S_2_first_mm_date'] = df['S_2_first'].dt.month
+    df['S_2_first_yy_date'] = df['S_2_first'].dt.year
+
+    df['S_2_last_dd_date'] = df['S_2_last'].dt.day
+    df['S_2_last_mm_date'] = df['S_2_last'].dt.month
+    df['S_2_last_yy_date'] = df['S_2_last'].dt.year
+
+    agg_df = df.groupby(by=['customer_ID']).agg({'S_2': ['last', last_2, last_3],
+                                                 'days_between_statements': ['last', last_2, last_3]})
+
+    agg_df.columns = [i + '_' + j for i in ['S_2', 'days_between_statements'] for j in ['last', 'last_2', 'last_3']]
+    df = df.groupby(by=['customer_ID']).agg(take_first_col)
+    df = df.merge(agg_df, how='inner', left_index=True, right_index=True)
+    df = df.drop(['S_2', 'days_between_statements', 'S_2_first', 'S_2_last_x'], axis=1)
+
+    return df
