@@ -57,7 +57,8 @@ def _ewmt(df, hl):
 
     """
     df_new = df.ewm(halflife=hl).mean()
-    df_new.columns = [f'{df_new.columns[0]}_ewm{hl}']
+    #df_new.columns = [f'{df_new.columns[0]}_ewm{hl}']
+    df_new = df_new.add_suffix(f'ewm{hl}')
     return df_new
 
 
