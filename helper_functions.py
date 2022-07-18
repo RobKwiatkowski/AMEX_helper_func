@@ -73,10 +73,10 @@ def calc_ewm(chunks, periods=(2, 4)):
     """
     ewm_results = []
     for t in periods:
-        p = Pool(cpu_count())
+        p1 = Pool(cpu_count())
         ewm_results.append(p.starmap(_ewmt, zip(chunks, repeat(t))))
-        p.close()
-        p.join()
+        p1.close()
+        p1.join()
 
     rows_joined = []
     for c in ewm_results:
@@ -110,10 +110,10 @@ def calc_categorical_stats(chunks):
     Returns: pandas dataframe with calculated statistics
 
     """
-    p = Pool(cpu_count())
+    p2 = Pool(cpu_count())
     results = p.map(_cat_stat, chunks)
-    p.close()
-    p.join()
+    p2.close()
+    p2.join()
 
     results = pd.concat(results)
     return results
