@@ -83,3 +83,36 @@ def calc_ewm(chunks, periods=(2, 4)):
         rows_joined.append(ewm_results)
     final = pd.concat(rows_joined, axis=1)
     return final
+
+
+def _cat_stat(df):
+    """
+    Calculates categorical statistics for a chunk
+    Args:
+        df: pandas dataframe
+
+    Returns: pandas dataframe with statistics
+
+    """
+    cat_features = ['B_30', 'B_38', 'D_63', 'D_64', 'D_66', 'D_68', 'D_114', 'D_116', 'D_117', 'D_120', 'D_126']
+    data_cat_agg = df.groupby("customer_ID")[cat_features].agg(['count','first', 'last', 'nunique'])
+    data_cat_agg.columns = ['_'.join(x) for x in data_cat_agg.columns]
+    return data_cat_agg
+
+
+def calc_categorical_stats(chunks):
+    """
+    Calculates categorical statistics for all chunks
+    Args:
+        chunks: list of pandas dataframe
+
+    Returns: pandas dataframe with calculated statistics
+
+    """
+    p = Pool(cpu_count())
+    results = p.map(_cat_stat, chunks)
+    p.close()
+    p.join()
+
+    results = pd.concat(results)
+    return results
