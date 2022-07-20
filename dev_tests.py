@@ -8,8 +8,9 @@ if __name__ == '__main__':
     pd.options.display.max_columns = 15
 
     data_raw = hf.read_data('data', sample=True, cust_ratio=0.2)
+
     c_ids = data_raw['customer_ID'].unique()
-    pd.DataFrame(c_ids).to_csv('outputs/cust_ids.csv')
+    pd.DataFrame(c_ids).to_csv('outputs/cust_ids.csv', index=False)
 
     cat_features = ['B_30', 'B_38', 'D_63', 'D_64', 'D_66', 'D_68', 'D_114', 'D_116', 'D_117', 'D_120', 'D_126']
     num_features = [c for c in data_raw.columns if c not in cat_features+['customer_ID']]
