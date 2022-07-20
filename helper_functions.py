@@ -41,7 +41,7 @@ def prepare_chunks_cust(df, columns):
     ready_chunks = []
 
     for c_ids in cust_ids_split:
-        sub = df[df['customer_ID'].isin(c_ids)][['customer_ID'] + columns]
+        sub = df[df['customer_ID'].isin(c_ids)][columns]
         ready_chunks.append(sub)
     return ready_chunks
 
@@ -56,8 +56,10 @@ def _ewmt(df, hl):
     Returns: pandas dataframe
 
     """
+    cust_ids = df['customer_ID']
     df_new = df.ewm(halflife=hl).mean()
     df_new = df_new.add_suffix(f'ewm{hl}')
+    df_new = pd.concat([cust_ids, df_new], axis=1)
     return df_new
 
 
@@ -70,6 +72,7 @@ def calc_ewm(chunks, periods=(2, 4)):
 
     Returns: pandas dataframe
     """
+
     ewm_results = []
     for t in periods:
         p1 = Pool(cpu_count())
@@ -82,6 +85,7 @@ def calc_ewm(chunks, periods=(2, 4)):
         ewm_results = pd.concat(c)
         rows_joined.append(ewm_results)
     final = pd.concat(rows_joined, axis=1)
+    final = final.loc[:, ~final.columns.duplicated()].copy()
     return final
 
 
@@ -95,7 +99,7 @@ def _cat_stat(df):
 
     """
     cat_features = ['B_30', 'B_38', 'D_63', 'D_64', 'D_66', 'D_68', 'D_114', 'D_116', 'D_117', 'D_120', 'D_126']
-    data_cat_agg = df.groupby("customer_ID")[cat_features].agg(['count','first', 'last', 'nunique'])
+    data_cat_agg = df.groupby("customer_ID")[cat_features].agg(['count', 'first', 'last', 'nunique'])
     data_cat_agg.columns = ['_'.join(x) for x in data_cat_agg.columns]
     return data_cat_agg
 
@@ -118,29 +122,21 @@ def calc_categorical_stats(chunks):
     return results
 
 
-def _take_first_col(series):
-    return series.values[0]
+def prepare_date_features(df):
 
-
-def _last_2(series):
-    return series.values[-2] if len(series.values) >= 2 else -127
-
-
-def _last_3(series):
-    return series.values[-3] if len(series.values) >= 3 else -127
-
-
-def prepare_date_features(df, cat_features, num_cols):
+    def _take_first_col(series): return series.values[0]
+    def _last_2(series): return series.values[-2] if len(series.values) >= 2 else -127
+    def _last_3(series): return series.values[-3] if len(series.values) >= 3 else -127
 
     # Converting S_2 column to datetime column
     df['S_2'] = pd.to_datetime(df['S_2'])
 
     # How many rows of records does each customer has?
-    df['rec_len_date'] = df[['customer_ID', 'S_2']].groupby(by=['customer_ID'])['S_2'].transform('count')
+    df['rec_len_date'] = df.loc[:, ['customer_ID', 'S_2']].groupby(by=['customer_ID'])['S_2'].transform('count')
 
     # Encode the 1st statement and the last statement time
-    df['S_2_first'] = df[['customer_ID', 'S_2']].groupby(by=['customer_ID'])['S_2'].transform('min')
-    df['S_2_last'] = df[['customer_ID', 'S_2']].groupby(by=['customer_ID'])['S_2'].transform('max')
+    df['S_2_first'] = df.loc[:, ['customer_ID', 'S_2']].groupby(by=['customer_ID'])['S_2'].transform('min')
+    df['S_2_last'] = df.loc[:, ['customer_ID', 'S_2']].groupby(by=['customer_ID'])['S_2'].transform('max')
 
     # For how long(days) the customer is receiving the statements
     df['S_2_period'] = (df[['customer_ID', 'S_2']].groupby(by=['customer_ID'])['S_2'].transform('max') -
