@@ -131,8 +131,6 @@ def _last_3(series):
 
 
 def prepare_date_features(df, cat_features, num_cols):
-    # Drop all other columns except the S_2 and customer_ID(cat_cols, num_cols)
-    df = df.drop(cat_features + num_cols, axis=1)
 
     # Converting S_2 column to datetime column
     df['S_2'] = pd.to_datetime(df['S_2'])
@@ -178,11 +176,11 @@ def prepare_date_features(df, cat_features, num_cols):
     df['S_2_last_mm_date'] = df['S_2_last'].dt.month
     df['S_2_last_yy_date'] = df['S_2_last'].dt.year
 
-    agg_df = df.groupby(by=['customer_ID']).agg({'S_2': ['last', last_2, last_3],
-                                                 'days_between_statements': ['last', last_2, last_3]})
+    agg_df = df.groupby(by=['customer_ID']).agg({'S_2': ['last', _last_2, _last_3],
+                                                 'days_between_statements': ['last', _last_2, _last_3]})
 
     agg_df.columns = [i + '_' + j for i in ['S_2', 'days_between_statements'] for j in ['last', 'last_2', 'last_3']]
-    df = df.groupby(by=['customer_ID']).agg(take_first_col)
+    df = df.groupby(by=['customer_ID']).agg(_take_first_col)
     df = df.merge(agg_df, how='inner', left_index=True, right_index=True)
     df = df.drop(['S_2', 'days_between_statements', 'S_2_first', 'S_2_last_x'], axis=1)
 
