@@ -1,10 +1,11 @@
 import pandas as pd
 import numpy as np
+import gc
 from multiprocessing import Pool, cpu_count
 from itertools import repeat
 
 
-def read_data(directory='', train=True, sample=False, cust_ratio=0.1):
+def read_data(directory='', train=True, sample=False, cust_ratio=0.2):
     """
     Args:
     train - bool - True if to read a train file
@@ -29,15 +30,17 @@ def read_data(directory='', train=True, sample=False, cust_ratio=0.1):
     return df
 
 
-def prepare_chunks_cust(df, columns):
+def prepare_chunks_cust(df, columns, n_chunks=12):
     """
     Prepares chunks by customers
     :param df: pandas dataframe
     :param columns: columns to be used
+    :param n_chunks: number of chunks to be generated
+
     :return: list of pandas dataframes
     """
     cust_unique_ids = df['customer_ID'].unique()
-    cust_ids_split = np.array_split(cust_unique_ids, 12)
+    cust_ids_split = np.array_split(cust_unique_ids, n_chunks)
     ready_chunks = []
 
     for c_ids in cust_ids_split:
@@ -46,21 +49,24 @@ def prepare_chunks_cust(df, columns):
     return ready_chunks
 
 
-def _ewmt(df, hl):
+def _ewmt(chunk, periods):
     """
     Calculates EWM for a chunk
     Args:
         df: pandas database
-        hl: integer, halflife value
+        periods: list, periods of halflife value
 
     Returns: pandas dataframe
 
     """
-    cust_ids = df['customer_ID']
-    df_new = df.ewm(halflife=hl).mean()
-    df_new = df_new.add_suffix(f'ewm{hl}')
-    df_new = pd.concat([cust_ids, df_new], axis=1)
-    return df_new
+    results = []
+    cust_ids = chunk['customer_ID']
+    for t in periods:
+        chunk = chunk.ewm(halflife=t).mean()
+        chunk = chunk.add_suffix(f'ewm{t}')
+        results.append(pd.concat([cust_ids, chunk], axis=1))
+    df = pd.concat(results)
+    return df
 
 
 def calc_ewm(chunks, periods=(2, 4)):
@@ -72,20 +78,15 @@ def calc_ewm(chunks, periods=(2, 4)):
 
     Returns: pandas dataframe
     """
-
     ewm_results = []
-    for t in periods:
-        p1 = Pool(cpu_count())
-        ewm_results.append(p1.starmap(_ewmt, zip(chunks, repeat(t))))
-        p1.close()
-        p1.join()
+    p1 = Pool(cpu_count())
+    ewm_results.append(p1.starmap(_ewmt, zip(chunks, repeat(periods))))
+    p1.close()
+    p1.join()
 
-    rows_joined = []
-    for c in ewm_results:
-        ewm_results = pd.concat(c)
-        rows_joined.append(ewm_results)
-    final = pd.concat(rows_joined, axis=1)
-    final = final.loc[:, ~final.columns.duplicated()].copy()
+    gc.collect()
+    final = pd.concat(ewm_results[0])
+    del ewm_results
     return final
 
 

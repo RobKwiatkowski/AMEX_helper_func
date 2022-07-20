@@ -1,8 +1,14 @@
 import pandas as pd
+import glob
 
-df1 = pd.read_parquet("df_ewm.gzip", engine='fastparquet')
-df2 = pd.read_csv("df_cats.csv")
-df3 = pd.read_csv("df_date.csv")
-print(df1.head())
-print(df2.head())
-print(df3.head())
+pd.options.display.width = None
+pd.options.display.max_columns = 15
+
+files = glob.glob('outputs/*.gzip')
+data = pd.read_parquet(files[0])
+for f in files[1:]:
+    new_def = pd.read_parquet(f, engine='fastparquet')
+    data = pd.concat([data, new_def], axis=1)
+
+print(data.head())
+
