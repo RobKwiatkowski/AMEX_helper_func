@@ -1,33 +1,45 @@
 if __name__ == '__main__':
+    import glob
+    import os
     import gc
     import numpy as np
     import pandas as pd
     import helper_functions as hf
 
-    def ewm(cols_to_use):
+    def ewm(cols_to_use, parallel=True, periods=(2, 4)):
         ewm_cols = [c for c in cols_to_use if c in num_features]
         print(f'Number of columns for EWMs: {len(ewm_cols)}')
-        results = []
-        for i, split_cols in enumerate(np.array_split(ewm_cols, 4)):
-            split_cols = list(split_cols)
-            split_cols.insert(0, 'customer_ID')  # customer_ID should always be in a chunk
-            chunks_to_use = hf.prepare_chunks_cust(data_raw, split_cols, n_chunks=6)
-            df_ewms = hf.calc_ewm(chunks_to_use, periods=[2, 4])
-            df_ewms.reset_index(inplace=True)
-            print(f'writing EWMs{i} data...')
-            df_ewms.to_parquet(f'outputs/df_ewm{i}.parquet')
-        return results
+        if parallel:
+            for i, split_cols in enumerate(np.array_split(ewm_cols, 4)):
+                split_cols = list(split_cols)
+                split_cols.insert(0, 'customer_ID')  # customer_ID should always be in a chunk
+                chunks_to_use = hf.prepare_chunks_cust(data_raw, split_cols, n_chunks=6)
+                df_ewms = hf.calc_ewm(chunks_to_use, periods=periods)
+                df_ewms.reset_index(inplace=True)
+                print(f'writing EWMs{i} data...')
+                df_ewms.to_parquet(f'outputs/df_ewm{i}.parquet')
+        else:
+            cols_to_use.insert(0, 'customer_ID')
+            results = hf.calc_ewm(cols_to_use, periods=periods)
+            results.to_parquet(f'outputs/df_ewm.parquet')
+
+        return 0
 
 
     pd.options.display.width = None
     pd.options.display.max_columns = 15
 
     # reading raw data
-    data_raw = hf.read_data('data', sample=False, cust_ratio=0.1)
-    cols_to_drop = ['D_88', 'D_110', 'B_39', 'D_73', 'B_42',
-                    'D_88', 'D_77', 'D_139', 'D_141', 'D_143',
-                    'D_110', 'B_1']
+    data_raw = hf.read_data('data', train=True, sample=True, cust_ratio=0.01)
+
+    cols_to_drop = ['D_88', 'D_110', 'B_39', 'D_73', 'B_42','D_88', 'D_77', 'D_139', 'D_141', 'D_143', 'D_110', 'B_1']
     data_raw.drop(cols_to_drop, axis=1, inplace=True)
+
+    # cleaning folder
+    files = glob.glob('outputs/*.*')
+    print(files)
+    for f in files:
+        os.remove(f)
 
     # dumping customer_IDs
     c_ids = data_raw['customer_ID'].unique()

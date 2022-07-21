@@ -5,12 +5,15 @@ if __name__ == '__main__':
     pd.options.display.width = None
     pd.options.display.max_columns = 25
 
-    data = pd.read_csv('data/train_labels.csv').set_index('customer_ID')
+    # data = pd.read_csv('data/train_labels.csv').set_index('customer_ID')
+    # data = pd.read_csv('outputs/cust_ids.csv').set_index('customer_ID')
+    data = pd.read_csv('data/sample_submission.csv').set_index('customer_ID').drop('prediction', axis=1)
     print(data.shape)
 
     files = glob.glob('outputs/*.parquet')
     ewms = pd.read_parquet(files[0])
     ewms.set_index('customer_ID', inplace=True)
+    print(data.shape)
     for f in files[1:]:
         new_def = pd.read_parquet(f)
         ewms = pd.concat([ewms, new_def.set_index('customer_ID')], axis=1, join='inner')
@@ -26,9 +29,8 @@ if __name__ == '__main__':
     df_cats = pd.read_csv('outputs/df_cats.csv')
     data = pd.concat([data, df_cats.set_index('customer_ID')], axis=1, join='outer')
 
-    print(data.shape)
     print(data.head())
 
-    data.to_parquet('outputs/train_df.parquet')
+    data.to_parquet('outputs/final_dfs/train_df.parquet')
 
 
