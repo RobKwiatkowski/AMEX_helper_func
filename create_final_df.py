@@ -1,25 +1,34 @@
-import pandas as pd
-import numpy as np
-import glob
+if __name__ == '__main__':
+    import pandas as pd
+    import glob
 
-pd.options.display.width = None
-pd.options.display.max_columns = 15
+    pd.options.display.width = None
+    pd.options.display.max_columns = 25
 
-files = glob.glob('outputs/*.gzip')
-data = pd.read_parquet(files[0])
-data.set_index('customer_ID', inplace=True)
-for f in files[1:]:
-    new_def = pd.read_parquet(f, engine='fastparquet')
-    new_def.set_index('customer_ID', inplace=True)
-    data = pd.concat([data, new_def], axis=1)
-data.reset_index(inplace=True)
+    data = pd.read_csv('data/train_labels.csv').set_index('customer_ID')
+    print(data.shape)
 
-print(data.head())
+    files = glob.glob('outputs/*.parquet')
+    ewms = pd.read_parquet(files[0])
+    ewms.set_index('customer_ID', inplace=True)
+    for f in files[1:]:
+        new_def = pd.read_parquet(f)
+        ewms = pd.concat([ewms, new_def.set_index('customer_ID')], axis=1, join='inner')
+        print(ewms.shape)
 
-cust_ids = pd.read_csv('outputs/cust_ids.csv')
-cust_ids = cust_ids.values.flat
-data_ids = data['customer_ID'].unique().flat
-print(np.shape(cust_ids), type(cust_ids))
-print(np.shape(data_ids), type(data_ids))
+    data = pd.concat([data, ewms], axis=1, join='outer')
+    print(data.shape)
 
-print(np.array_equal(data['customer_ID'].unique(), cust_ids))
+    df_date = pd.read_csv('outputs/df_date.csv')
+    data = pd.concat([data, df_date.set_index('customer_ID')], axis=1, join='outer')
+    print(data.shape)
+
+    df_cats = pd.read_csv('outputs/df_cats.csv')
+    data = pd.concat([data, df_cats.set_index('customer_ID')], axis=1, join='outer')
+
+    print(data.shape)
+    print(data.head())
+
+    data.to_parquet('outputs/train_df.parquet')
+
+

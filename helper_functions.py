@@ -26,7 +26,10 @@ def read_data(directory='', train=True, sample=False, cust_ratio=0.2):
         no_of_cust = int(n_customers * cust_ratio)
         cust_ids = np.random.choice(df['customer_ID'].unique(), no_of_cust)
         df = df[df['customer_ID'].isin(cust_ids)]
+        print(f'Customers in sampled database: {no_of_cust}')
         print(f'Rows in sampled database: {df.shape[0]}')
+    else:
+        print('Using the entire database.')
     return df
 
 
@@ -64,8 +67,9 @@ def _ewmt(chunk, periods):
     for t in periods:
         chunk = chunk.ewm(halflife=t).mean()
         chunk = chunk.add_suffix(f'ewm{t}')
-        results.append(pd.concat([cust_ids, chunk], axis=1))
-    df = pd.concat(results)
+        ids_chunk = pd.concat([cust_ids, chunk], axis=1)
+        results.append(ids_chunk.set_index('customer_ID'))
+    df = pd.concat(results, axis=1)
     return df
 
 
@@ -85,8 +89,10 @@ def calc_ewm(chunks, periods=(2, 4)):
     p1.join()
 
     gc.collect()
-    final = pd.concat(ewm_results[0])
+    final = pd.concat(ewm_results[0]).reset_index()
     del ewm_results
+    final = final.groupby("customer_ID").agg(['mean', 'std', 'min', 'max', 'last'])
+    final.columns = ['_'.join(x) for x in final.columns]
     return final
 
 
