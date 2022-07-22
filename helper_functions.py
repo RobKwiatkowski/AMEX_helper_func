@@ -7,10 +7,11 @@ from itertools import repeat
 
 def read_data(directory='', train=True, sample=False, cust_ratio=0.2):
     """
-    Args:
-    train - bool - True if to read a train file
-    sample - bool - True if to draw a sample
-    cust_ratio - float - a ratio of customers to be sampled
+    args:
+        directory: string
+        train: bool, True if to read a train file
+        sample: bool,  True if to draw a sample
+        cust_ratio: float,  a ratio of customers to be sampled
     """
 
     if train:
@@ -36,9 +37,10 @@ def read_data(directory='', train=True, sample=False, cust_ratio=0.2):
 def prepare_chunks_cust(df, columns, n_chunks=12):
     """
     Prepares chunks by customers
-    :param df: pandas dataframe
-    :param columns: columns to be used
-    :param n_chunks: number of chunks to be generated
+    args:
+        df: pandas dataframe
+        columns: columns to be used
+        n_chunks: number of chunks to be generated
 
     :return: list of pandas dataframes
     """
@@ -56,7 +58,7 @@ def _ewmt(chunk, periods):
     """
     Calculates EWM for a chunk
     Args:
-        df: pandas database
+        chunk: pandas database
         periods: list, periods of halflife value
 
     Returns: pandas dataframe
@@ -188,3 +190,27 @@ def prepare_date_features(df):
     df = df.drop(['S_2', 'days_between_statements', 'S_2_first', 'S_2_last_x'], axis=1)
 
     return df
+
+
+def _calc(chunk, stats):
+    final = chunk.groupby("customer_ID").agg(stats)
+    final.columns = ['_'.join(x) for x in final.columns]
+    return final
+
+
+def calc_numerical_stats(chunks, stats=('min', 'max', 'mean')):
+    """
+    Calculates categorical statistics for all chunks
+    Args:
+        chunks: list of pandas dataframe
+        stats: aggregate statistics to be used
+
+    Returns: pandas dataframe with calculated statistics
+    """
+
+    p3 = Pool(cpu_count())
+    r = p3.starmap(_calc, zip(chunks, repeat(stats)))
+    p3.close()
+    p3.join()
+    r = pd.concat(r)
+    return r

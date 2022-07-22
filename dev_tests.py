@@ -29,17 +29,19 @@ if __name__ == '__main__':
     pd.options.display.width = None
     pd.options.display.max_columns = 15
 
-    # reading raw data
-    data_raw = hf.read_data('data', train=True, sample=True, cust_ratio=0.01)
-
-    cols_to_drop = ['D_88', 'D_110', 'B_39', 'D_73', 'B_42','D_88', 'D_77', 'D_139', 'D_141', 'D_143', 'D_110', 'B_1']
-    data_raw.drop(cols_to_drop, axis=1, inplace=True)
-
-    # cleaning folder
+    # cleaning outputs folder
     files = glob.glob('outputs/*.*')
-    print(files)
+    nl = '\n'
+    print(f'Files to be removed:{nl}{files}')
     for f in files:
         os.remove(f)
+
+    # reading raw data
+    data_raw = hf.read_data('data', train=True, sample=False, cust_ratio=0.01)
+
+    # dropping some columns
+    cols_to_drop = ['D_88', 'D_110', 'B_39', 'D_73', 'B_42', 'D_88', 'D_77', 'D_139', 'D_141', 'D_143', 'D_110', 'B_1']
+    data_raw.drop(cols_to_drop, axis=1, inplace=True)
 
     # dumping customer_IDs
     c_ids = data_raw['customer_ID'].unique()
@@ -71,4 +73,12 @@ if __name__ == '__main__':
     print('writing categorical stats...')
     df_cats.to_csv('outputs/df_cats.csv')
     del df_cats
+    gc.collect()
+
+    # numerical stats
+    chunks_to_use = hf.prepare_chunks_cust(data_raw, ['customer_ID']+num_features)
+    df_nums = hf.calc_numerical_stats(chunks_to_use)
+    print('writing numerical stats...')
+    df_nums.to_csv('outputs/df_nums.csv')
+    del df_nums
     gc.collect()
